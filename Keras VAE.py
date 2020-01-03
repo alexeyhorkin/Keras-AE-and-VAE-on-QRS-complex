@@ -1,4 +1,4 @@
-from cycle_generator import *
+from Functions import *
 from keras.models import Model
 from matplotlib.animation import FuncAnimation
 from tensorflow.python.keras.callbacks import TensorBoard , ModelCheckpoint
@@ -14,7 +14,7 @@ import os
 # ecg_data_200
 # data_2033
 # data_1078
-dataset_path="..\\data_2033\\ecg_data_200.json" #файл с датасетом
+dataset_path="..\\data_2033\\data_1078.json" #файл с датасетом
 data = Openf(dataset_path) # Open data file
 print("file was opened")
 

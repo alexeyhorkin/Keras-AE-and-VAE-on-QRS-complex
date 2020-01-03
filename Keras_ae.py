@@ -6,7 +6,7 @@ import keras.backend as K
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import pickle
-from cycle_generator import *
+from Functions import *
 import os
 # ecg_data_200
 # data_2033
@@ -24,7 +24,7 @@ cycle_lenght = 256
 size_of_data = cycle_lenght*2
 count_of_batch = 35
 learning_rate = 0.1
-epochs = 50
+epochs = 2
 batch_size = 40
 latent_dim = 30
 
