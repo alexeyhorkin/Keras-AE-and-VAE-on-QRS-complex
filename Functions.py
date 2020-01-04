@@ -126,7 +126,33 @@ def generator_QRS_complexes(data, batch_size, cycle_lenght = 250, seed = 10):
 
 
 
-def visualize_latent_space(start_true,end_true,start, end, decoder, count_of_step, size_of_data, folder_path_to_save):
+def generator_QRS_complexes_on_big_data(data, batch_size, cycle_lenght = 250, seed = 10):
+    rd.seed(seed) # set a seed
+    while True:
+        RES = []
+        count = 0
+        while(count <batch_size):
+            index = rd.sample( list(range(len(data))), 1 )[0]
+            signal = data[index] # take a random signal
+            x_fltr = wavelet_smooth(signal, wavelet="db4", level=1, title=None)
+            peaks_idx = find_peaks_div(x_fltr)
+            peaks_idx.sort()
+            if len(peaks_idx)>=3:
+                peaks_idx = peaks_idx[1:-1] # remove edgest peaks
+            else:
+                continue # make one else iteration
+            peak = rd.sample(peaks_idx, 1)[0] # take a random peak
+            while (peak-cycle_lenght<0) or (peak+cycle_lenght>len(signal)): # resave the peak if index out of range
+                peak = rd.sample(peaks_idx, 1)[0] # take a random peak
+            res = signal[peak-cycle_lenght:peak+cycle_lenght]
+            RES.append(res)
+            count +=1
+        RES = np.array(RES)
+        RES = np.reshape(RES, (count, cycle_lenght*2, 1 ))
+        yield (RES, RES)
+
+
+def visualize_latent_space(start_true,end_true,start, end, decoder, count_of_step, size_of_data, folder_path_to_save, postfix_for_file):
     from matplotlib.animation import FuncAnimation
     interpol_arr = []
     direction = (end-start)/count_of_step
@@ -157,10 +183,9 @@ def visualize_latent_space(start_true,end_true,start, end, decoder, count_of_ste
     if not os.path.exists(os.path.dirname(folder_path_to_save)): # create folder if folder doesn't exist
         os.makedirs(folder_path_to_save)
 
-    anim.save(folder_path_to_save + 'animation_interpol.gif', writer='imagemagick', fps=60)
-    with open(folder_path_to_save + 'interpol_array.pickle', 'wb') as q:
+    anim.save(folder_path_to_save + 'animation_interpol' + postfix_for_file + '.gif', writer='imagemagick', fps=60)
+    with open(folder_path_to_save + 'interpol_array'+ postfix_for_file +'.pickle', 'wb') as q:
         pickle.dump([start_true, end_true, interpol_arr], q)
-    plt.show()
 
 def visualize_learning(history, graph1, graph2 ):
     plt.plot(history.history[graph1])
@@ -207,7 +232,7 @@ def create_decoder(input_for_decoder, shape):
     x = Dense(shape[1]*shape[2])(input_for_decoder)
     x = Reshape((shape[1] ,shape[2]))(x) 
     x = UpSampling1D(2)(x)
-    x = Conv1D(55, 20, activation = 'relu', padding='same')(x)
+    x = Conv1D(5, 20, activation = 'relu', padding='same')(x)
     x = BatchNormalization(axis=-1,momentum=0.99,epsilon=0.001) (x)
     x = UpSampling1D(2)(x)
     x = Dropout(dr_rate)(x)
@@ -221,35 +246,39 @@ def create_decoder(input_for_decoder, shape):
 
 def build_encoder_vae(input_for_encoder, latent_dim):
     '''create an encoder'''
+    dr_rate = 0.2
     x = Conv1D(30, 100, activation = 'relu', padding='same')(input_for_encoder)
     x = BatchNormalization(axis=-1,momentum=0.99,epsilon=0.001) (x)
     x = MaxPooling1D(2, padding='same')(x)
-    x = Conv1D(20, 100,activation = 'relu', padding='same')(x)
+    x = Conv1D(15, 100,activation = 'relu', padding='same')(x)
     x = BatchNormalization(axis=-1,momentum=0.99,epsilon=0.001) (x)
     x = MaxPooling1D(2, padding='same')(x)
-    x = Conv1D(20, 30, activation = 'relu', padding='same')(x)
+    x = Dropout(dr_rate)(x)
+    x = Conv1D(15, 30, activation = 'relu', padding='same')(x)
     x =  MaxPooling1D(2, padding='same')(x)
-    x = Conv1D(15, 20, activation = 'relu', padding='same')(x)
+    x = Conv1D(5, 20, activation = 'relu', padding='same')(x)
     x = MaxPooling1D(2, padding='same')(x)
     shape = K.int_shape(x) # save this shape for purposes of reconstruction 
     encoded = Flatten()(x) # shape is encoding_dim*1
     z_mean = Dense(latent_dim, )(encoded) # среднее
     z_log_var = Dense(latent_dim, )(encoded) # log(sigma**2)
     z = Lambda(sampling, output_shape=(latent_dim,), name='z')([z_mean, z_log_var]) # sampling
-    # z = Reshape( (latent_dim,1) )(z) 
     return ( Model(input_for_encoder, [z_mean, z_log_var, z]) , z_mean, z_log_var, z, shape) # return a model and some usefull layers 
 
 def build_decoder_vae(input_for_decoder, shape):
     '''create a decoder'''
-    # input_for_decoder = Reshape((K.int_shape(input_for_decoder)[1],))(input_for_decoder)
+    dr_rate = 0.2
     x = Dense(shape[1]*shape[2])(input_for_decoder)
     x = Reshape((shape[1] ,shape[2]))(x) 
     x = UpSampling1D(2)(x)
-    x = Conv1D(15, 20, activation = 'relu', padding='same')(x)
+    x = Conv1D(5, 20, activation = 'relu', padding='same')(x)
+    x = BatchNormalization(axis=-1,momentum=0.99,epsilon=0.001) (x)
     x = UpSampling1D(2)(x)
-    x = Conv1D(20, 30, activation = 'relu', padding='same')(x)
+    x = Conv1D(15, 30, activation = 'relu', padding='same')(x)
+    x = Dropout(dr_rate)(x)
     x = UpSampling1D(2)(x)
-    x = Conv1D(20, 100, activation = 'relu', padding='same')(x)
+    x = Conv1D(15, 100, activation = 'relu', padding='same')(x)
+    x = BatchNormalization(axis=-1,momentum=0.99,epsilon=0.001) (x)
     x = UpSampling1D(2)(x)
     decoded = Conv1D(1, 100, padding='same')(x)
     return Model(input_for_decoder, decoded) # create a model

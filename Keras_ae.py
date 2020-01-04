@@ -7,13 +7,26 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import pickle
 from Functions import *
+from keras.models import load_model
 import os
 # ecg_data_200
 # data_2033
 # data_1078
-dataset_path="..\\data_2033\\data_1078.json" #файл с датасетом
-data = Openf(dataset_path) # Open data file
-print("file was opened")
+
+# dataset_path="..\\DATA\\data_1078.json" #файл с датасетом
+# data = Openf(dataset_path) # Open data file
+# print("file was opened")
+# create data test and train
+# data_train = { k: data[k] for k in list(data.keys())[:count_of_train]} 
+# data_test =  { k: data[k] for k in list(data.keys())[count_of_train:]}
+
+# generator_train = generator_QRS_complexes(data_train,batch_size, cycle_lenght)
+# generator_test = generator_QRS_complexes(data_test,batch_size, cycle_lenght)
+
+# open data
+with open('DATA_big.pickle', 'rb') as z:
+	data = pickle.load(z)
+
 
 ###############################################
 ## Building a model
@@ -22,10 +35,10 @@ procent_train = 0.8
 SIZE = 5000
 cycle_lenght = 256
 size_of_data = cycle_lenght*2
-count_of_batch = 35
+count_of_batch = 20
 learning_rate = 0.1
-epochs = 2
-batch_size = 40
+epochs = 100
+batch_size = 100
 latent_dim = 30
 
 
@@ -54,12 +67,13 @@ autoencoder.compile(optimizer=optimizer, loss = 'mse')
 
 
 # create data test and train
-count_of_train = int(len(data.keys())*procent_train)
-data_train = { k: data[k] for k in list(data.keys())[:count_of_train]} 
-data_test =  { k: data[k] for k in list(data.keys())[count_of_train:]}
+count_of_train = int(len(data)*procent_train)
+data_train = data[:count_of_train]
+data_test =  data[count_of_train:]
+generator_train = generator_QRS_complexes_on_big_data(data_train,batch_size, cycle_lenght)
+generator_test = generator_QRS_complexes_on_big_data(data_test,batch_size, cycle_lenght)
 
-generator_train = generator_QRS_complexes(data_train,batch_size, cycle_lenght)
-generator_test = generator_QRS_complexes(data_test,batch_size, cycle_lenght)
+
 
 
 # for visualization reconstraction per epoches
@@ -112,19 +126,24 @@ for i in range(1,10):
 	plt.legend(['Input', 'Output'], loc='upper left')
 plt.show()
 
+
+
 # print interpolation
-rd.seed(1)
-data2 = next(generator_train)[0]
-start_true = np.reshape(data2[0], (size_of_data))
-end_true = np.reshape(data2[1], (size_of_data))
-plt.plot(start_true)
-plt.plot(end_true)
-plt.legend([r'$first \ \ ecg \ \ signal$', r'$second \ \ ecg \ \ signal$'], loc='upper left', fontsize=12)
-plt.xlabel(r'$time$', fontsize=15)
-plt.ylabel(r'$value$' , fontsize=15)
-plt.show()
-start, end = encoder.predict(data2)[:2]
-visualize_latent_space(start_true, end_true, start,end,decoder,100,size_of_data, folder_path_for_hist)
+rd.seed(33)
+for i in range(20):
+	postfix_for_file = str(i)
+	data2 = next(generator_train)[0]
+	start_true = np.reshape(data2[0], (size_of_data))
+	end_true = np.reshape(data2[1], (size_of_data))
+	# show 2 ecg signals for interpolation
+	# plt.plot(start_true)
+	# plt.plot(end_true)
+	# plt.legend([r'$first \ \ ecg \ \ signal$', r'$second \ \ ecg \ \ signal$'], loc='upper left', fontsize=12)
+	# plt.xlabel(r'$time$', fontsize=15)
+	# plt.ylabel(r'$value$' , fontsize=15)
+	# plt.show()
+	start, end = encoder.predict(data2)[:2]
+	visualize_latent_space(start_true, end_true, start,end,decoder,100,size_of_data, folder_path_for_hist, postfix_for_file)
 
 
 
